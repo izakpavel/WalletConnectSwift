@@ -22,9 +22,7 @@ class WebSocketConnection {
     // serial queue for receiving the calls.
     private let serialCallbackQueue: DispatchQueue
 
-    var isOpen: Bool {
-        return socket.isConnected
-    }
+    var isOpen: Bool
 
     init(url: WCURL,
          onConnect: (() -> Void)?,
@@ -34,8 +32,9 @@ class WebSocketConnection {
         self.onConnect = onConnect
         self.onDisconnect = onDisconnect
         self.onTextReceive = onTextReceive
+        self.isOpen = false
         serialCallbackQueue = DispatchQueue(label: "org.walletconnect.swift.connection-\(url.bridgeURL)-\(url.topic)")
-        socket = WebSocket(url: url.bridgeURL)
+        socket = WebSocket(request: URLRequest(url: url.bridgeURL))//url: url.bridgeURL)
         socket.delegate = self
         socket.callbackQueue = serialCallbackQueue
     }
@@ -49,7 +48,7 @@ class WebSocketConnection {
     }
 
     func send(_ text: String) {
-        guard socket.isConnected else { return }
+        guard self.isOpen else { return }
         socket.write(string: text)
         log(text)
     }
@@ -66,7 +65,12 @@ class WebSocketConnection {
 }
 
 extension WebSocketConnection: WebSocketDelegate {
+    func didReceive(event: WebSocketEvent, client: WebSocket) {
+        print("didReceive")
+    }
+    
     func websocketDidConnect(socket: WebSocketClient) {
+        self.isOpen = true
         pingTimer = Timer.scheduledTimer(withTimeInterval: pingInterval, repeats: true) { [weak self] _ in
             LogService.shared.log("WC: ==> ping")
             self?.socket.write(ping: Data())
@@ -75,6 +79,7 @@ extension WebSocketConnection: WebSocketDelegate {
     }
 
     func websocketDidDisconnect(socket: WebSocketClient, error: Error?) {
+        self.isOpen = false
         pingTimer?.invalidate()
         onDisconnect?(error)
     }
