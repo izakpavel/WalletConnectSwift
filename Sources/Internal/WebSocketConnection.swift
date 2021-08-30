@@ -66,29 +66,40 @@ class WebSocketConnection {
 
 extension WebSocketConnection: WebSocketDelegate {
     func didReceive(event: WebSocketEvent, client: WebSocket) {
-        print("didReceive")
-    }
-    
-    func websocketDidConnect(socket: WebSocketClient) {
-        self.isOpen = true
-        pingTimer = Timer.scheduledTimer(withTimeInterval: pingInterval, repeats: true) { [weak self] _ in
-            LogService.shared.log("WC: ==> ping")
-            self?.socket.write(ping: Data())
+        print("didReceive event: \(event)")
+        switch event {
+            case .connected(let dictionary):
+                print (dictionary)
+                self.isOpen = true
+                
+                self.pingTimer = Timer.scheduledTimer(withTimeInterval: self.pingInterval, repeats: true) { [weak self] _ in
+                    LogService.shared.log("WC: ==> ping")
+                    self?.socket.write(ping: Data())
+                }
+                self.onConnect?()
+        case .disconnected(let stringValue, let intValue):
+            print ((stringValue, intValue))
+            
+            self.isOpen = false
+            pingTimer?.invalidate()
+            self.onDisconnect?(nil)
+            
+        case .text(let message):
+            onTextReceive?(message)
+        case .binary(let data):
+            print (data)
+        case .pong(let data):
+            print (data?.count ?? 0)
+        case .ping(let data):
+            print (data?.count ?? 0)
+        case .error(let error):
+            print (error?.localizedDescription ?? "")
+        case .viabilityChanged( let boolValue):
+            print (boolValue)
+        case .reconnectSuggested(let boolValue):
+            print (boolValue)
+        case .cancelled:
+            print("cancelled")
         }
-        onConnect?()
-    }
-
-    func websocketDidDisconnect(socket: WebSocketClient, error: Error?) {
-        self.isOpen = false
-        pingTimer?.invalidate()
-        onDisconnect?(error)
-    }
-
-    func websocketDidReceiveMessage(socket: WebSocketClient, text: String) {
-        onTextReceive?(text)
-    }
-
-    func websocketDidReceiveData(socket: WebSocketClient, data: Data) {
-        // no-op
     }
 }
