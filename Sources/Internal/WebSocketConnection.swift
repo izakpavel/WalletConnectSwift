@@ -93,13 +93,19 @@ extension WebSocketConnection: WebSocketDelegate {
         case .ping(let data):
             print (data?.count ?? 0)
         case .error(let error):
+            self.isOpen = false
+            pingTimer?.invalidate()
             print (error?.localizedDescription ?? "")
+            self.onDisconnect?(error)
         case .viabilityChanged( let boolValue):
             print (boolValue)
         case .reconnectSuggested(let boolValue):
             print (boolValue)
         case .cancelled:
-            print("cancelled")
+            self.isOpen = false
+            pingTimer?.invalidate()
+            
+            self.onDisconnect?(nil)
         }
     }
 }
